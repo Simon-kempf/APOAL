@@ -1,9 +1,12 @@
 import tkinter as tk
+import tkinter.messagebox
 import random
+
+version = "0.2.0" #Version du jeu
 
 # Création de la fenêtre principale
 root = tk.Tk()
-root.title("À prendre ou à laisser")
+root.title("À prendre ou à laisser v. " + version)
 
 objets = [
     "une tasse",
@@ -28,6 +31,7 @@ boites = list(range(1, n_boites+1))  # 24 boîtes numérotées de 1 à 24
 sommes = sommes_ordre[:]
 random.shuffle(sommes) # Répartition aléatoire des sommes dans les boîtes
 contenu_boite_25 = random.randrange(4) # Contenu de la 25ème boîte (fin du jeu)
+jackpot = 1000 # Montant du jackpot
 
 sommes_restantes = [] # Sommes restantes (seulement des int ou float)
 for somme in sommes_ordre:
@@ -44,9 +48,10 @@ offre = None
 offre_acceptee = None
 offres_banque = []
 gains_gagnes = 0
+jackpot_remporte = 0
 
 def appel_banque(): # Appel de la banque
-    global offre, boites_a_ouvrir, boites_tour_ouvertes
+    global offre, offres_banque, boites_a_ouvrir, boites_tour_ouvertes
     if boites_a_ouvrir > 1:
         boites_a_ouvrir -= 1
     boites_tour_ouvertes = 0
@@ -59,15 +64,10 @@ def appel_banque(): # Appel de la banque
         bouton_accepter.config(state=tk.ACTIVE)
         bouton_refuser.config(state=tk.ACTIVE)
     else: #Argent
-        if len(sommes_restantes)%2 == 0:
-            mediane = (sommes_restantes[len(sommes_restantes)//2-1]+sommes_restantes[len(sommes_restantes)//2])/2
-        else:
-            mediane = sommes_restantes[len(sommes_restantes)//2]
-        offre = mediane*(random.random()+0.5)
-        if offre < 1.1*min(sommes_restantes):
-            offre = mediane
-        elif offre > 0.9*max(sommes_restantes):
-            offre = mediane
+        moyenne = sum(sommes_restantes)/len(sommes_restantes)
+        offre = moyenne*random.uniform(0.08, 0.12)
+        if offre < min(sommes_restantes):
+            offre = moyenne
         offre = round(offre, 2)
         offres_banque.append(offre)
         if offre_acceptee == None:
@@ -86,18 +86,30 @@ def accepter(): #Acceptation d'une offre
             gains_gagnes = 0
             label_resultat.config(text=f"La 25ème boîte contient malheuresement banqueroute !\r\nVous avez tout perdu !")
         elif contenu_boite_25 == 1:
-            gains_gagnes = gains_gagnes/2
-            label_resultat.config(text=f"La 25ème boîte contient divisé par 2 !\r\nVous avez divisé vos gains par 2 !\r\nVous gagnez donc {gains_gagnes} € !")
+            if type(gains_gagnes) is str:
+                gain_str = gains_gagnes = "la moitié de " + gains_gagnes
+            else:
+                gains_gagnes = gains_gagnes/2
+                gain_str = str(gains_gagnes) + " €"
+            label_resultat.config(text=f"La 25ème boîte contient divisé par 2 !\r\nVous avez divisé vos gains par 2 !\r\nVous gagnez donc {gain_str} !")
         elif contenu_boite_25 == 2:
-            gains_gagnes += 1000
-            label_resultat.config(text=f"La 25ème boîte contient plus 1000 € !\r\nVous avez ajouté 1000 € à vos gains !\r\nVous gagnez donc {gains_gagnes} € !")
+            if type(gains_gagnes) is str:
+                gains_gagnes = 1000
+            else:
+                gains_gagnes += 1000
+            gain_str = str(gains_gagnes) + " €"
+            label_resultat.config(text=f"La 25ème boîte contient plus 1000 € !\r\nVous avez ajouté 1000 € à vos gains !\r\nVous gagnez donc {gain_str} !")
         else:
-            gains_gagnes = gains_gagnes*2
-            label_resultat.config(text=f"La 25ème boîte contient multiplié par 2 !\r\nVous avez multiplié vos gains par 2 !\r\nVous gagnez donc {gains_gagnes} € !")
+            if type(gains_gagnes) is str:
+                gain_str = gains_gagnes = "2 " + gains_gagnes + "s"
+            else:
+                gains_gagnes = gains_gagnes*2
+                gain_str = str(gains_gagnes) + " €"
+            label_resultat.config(text=f"La 25ème boîte contient multiplié par 2 !\r\nVous avez multiplié vos gains par 2 !\r\nVous gagnez donc {gain_str} !")
+        gains()
     else:
         offre_acceptee = offre
         label_resultat.config(text=f"Vous avez accepté {offre} € !\r\nQuelle boîte auriez-vous ouverte si vous n'auriez pas accepté ?\r\nIl reste {boites_a_ouvrir} boîtes à ouvrir avant l'offre du banquier.")
-        offres_banque.append(offre)
     offre = None
 
 def refuser(): #Refus d'une offre
@@ -113,43 +125,47 @@ def refuser(): #Refus d'une offre
             label_resultat.config(text=f"La 25ème boîte contenait plus 1000 € !\r\nVous gardez cependant vos {gains_gagnes} € !")
         else:
             label_resultat.config(text=f"La 25ème boîte contenait multiplié par 2 !\r\nVous gardez cependant vos {gains_gagnes} € !")
+        gains()
     else:
         label_resultat.config(text=f"Offre refusée.\r\nVous pouvez ouvrir une boîte.\r\nIl reste {boites_a_ouvrir} boîtes à ouvrir avant l'offre du banquier.")
-        if type(offre) is not str:
-            offres_banque.append(offre)
     offre = None
 
 # Fonction qui affiche la somme d'argent correspondant à une boîte sélectionnée
 def ouvrir(boite_num):
-    global boite_joueur, boites_tour_ouvertes, boites_restantes, offre
+    global boite_joueur, boites_tour_ouvertes, boites_restantes, offre, jackpot_remporte
+    jackpot_boite = False
     if boite_joueur >= 1 and boite_joueur <= 24 and offre == None: #Ouverture d'une boîte
         somme = sommes[boite_num - 1]  # Soustraction de 1 pour indexer correctement
-        if type(somme) is str:
+        if boites_restantes >= 21 and ((type(somme) is str and sommes_ordre.index(somme) == 0) or sommes_ordre.index(somme) == 0): # Jackpot
+            jackpot_remporte = jackpot
+            jackpot_boite = True
+            label_resultat.config(text=f"Félicitations !\r\nVous avez remporté le jackpot de {jackpot} € en ouvrant la 1ère somme dans les 3 premières boîtes !")
+        if type(somme) is str: # Récupération contenu boîte et suppression de la somme des sommes restantes
             contenu = objets[n_objet_choisi]
             sommes_restantes.remove(0.01)
         else:
             contenu = str(somme) + " €"
             sommes_restantes.remove(somme)
         boites_tour_ouvertes += 1
-        if boites_a_ouvrir-boites_tour_ouvertes <= 0:
+        boites_restantes -= 1
+        if boites_restantes < 1: # S'il n'y a plus de boîte, fin du jeu
+            fin()
+        elif boites_a_ouvrir-boites_tour_ouvertes <= 0:
             appel_banque()
             if offre == "échange":
-                label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} avec {contenu}.\r\nLa banque vous propose un échange de boîte.\r\nCliquez sur une boîte pour changer de boîte ou cliquez sur refuser (votre boîte actuelle : {boite_joueur}).")
+                label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} qui contenait {contenu}.\r\nLa banque vous propose un échange de boîte.\r\nCliquez sur une boîte pour changer de boîte ou cliquez sur refuser (votre boîte actuelle : {boite_joueur}).")
             elif offre == "comeback":
-                label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} avec {contenu}.\r\nLa banque vous propose un comeback (offre acceptée : {offre_acceptee} €).")
+                label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} qui contenait {contenu}.\r\nLa banque vous propose un comeback (offre acceptée : {offre_acceptee} €).")
             else:
                 if offre_acceptee is not None: # Une offre a déjà été acceptée
-                    label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} avec {contenu}.\r\nLa banque vous aurait proposé la somme de {offre} €.\r\nVous avez cependant accepté précédemment {offre_acceptee} €.")
+                    label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} qui contenait {contenu}.\r\nLa banque vous aurait proposé la somme de {offre} €.\r\nVous avez cependant accepté précédemment {offre_acceptee} €.")
                 else: # Aucune offre acceptée
-                    label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} avec {contenu}.\r\nLa banque vous propose la somme de {offre} €.\r\nÀ prendre ou à laisser.")
-        else:
-            label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} avec {contenu}.\r\nIl reste {boites_a_ouvrir-boites_tour_ouvertes} boîtes à ouvrir avant l'offre du banquier.")
+                    label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} qui contenait {contenu}.\r\nLa banque vous propose la somme de {offre} €.\r\nÀ prendre ou à laisser.")
+        elif not jackpot_boite:
+            label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} qui contenait {contenu}.\r\nIl reste {boites_a_ouvrir-boites_tour_ouvertes} boîtes à ouvrir avant l'offre du banquier.")
         listbox.itemconfig(sommes_ordre.index(somme), {'bg': 'black'})  # Cacher
         sommes[boite_num - 1] = None
-        boites_restantes -= 1
         boutons_boites[boite_num - 1].config(state=tk.DISABLED)  # Désactiver le bouton après le clic
-        if boites_restantes < 1:
-            fin()
     elif offre == "échange" or boite_joueur == -1: #Choix d'une boîte (échange ou début du jeu)
         if boite_joueur >= 1 and boite_joueur <= 24: #échange
             boutons_boites[boite_joueur - 1].config(state=tk.ACTIVE, bg=bouton_accepter.cget("background"))
@@ -169,26 +185,33 @@ def fin(): #Fin de la partie
     if len(offres_banque) == 0:
         offres_banque.append(0)
     if offre_acceptee == None:
-        label_resultat.config(text=f"Vous avez dans votre boîte la somme de {sommes[boite_joueur-1]} € !\r\nVous avez donc gagné {sommes[boite_joueur-1]} € !\r\nOffre du banquier la plus élevée : {max(offres_banque)} €.\r\nVous avez la possibilité d'ouvrir la 25ème boîte qui peut multiplier vos gains par 2 ou ajouter 1000 €.\r\nCependant, elle peut aussi vous faire tout perdre ou diviser vos gains par 2 !\r\nSouhaitez-vous prendre le risque de l'accepter ?")
         gains_gagnes = sommes[boite_joueur-1]
+        if type(gains_gagnes) is str:
+            label_resultat.config(text=f"Vous avez dans votre boîte {gains_gagnes} !\r\nOffre du banquier la plus élevée : {max(offres_banque)} €.\r\nVous avez la possibilité d'ouvrir la 25ème boîte qui peut multiplier vos gains par 2 ou ajouter 1000 €.\r\nCependant, elle peut aussi vous faire tout perdre ou diviser vos gains par 2 !\r\nSouhaitez-vous prendre le risque de l'accepter ?")
+        else:
+            label_resultat.config(text=f"Vous avez dans votre boîte la somme de {gains_gagnes} € !\r\nVous avez donc gagné {gains_gagnes} € !\r\nOffre du banquier la plus élevée : {max(offres_banque)} €.\r\nVous avez la possibilité d'ouvrir la 25ème boîte qui peut multiplier vos gains par 2 ou ajouter 1000 €.\r\nCependant, elle peut aussi vous faire tout perdre ou diviser vos gains par 2 !\r\nSouhaitez-vous prendre le risque de l'accepter ?")
     else:
         label_resultat.config(text=f"Vous avez accepté {offre_acceptee} € !\r\nVous avez {sommes[boite_joueur-1]} € dans votre boîte.\r\nOffre du banquier la plus élevée : {max(offres_banque)} €.\r\nVous avez la possibilité d'ouvrir la 25ème boîte qui peut multiplier vos gains par 2 ou ajouter 1000 €.\r\nCependant, elle peut aussi vous faire tout perdre ou diviser vos gains par 2 !\r\nSouhaitez-vous prendre le risque de l'accepter ?")
         gains_gagnes = offre_acceptee
     bouton_accepter.config(state=tk.ACTIVE)
     bouton_refuser.config(state=tk.ACTIVE)
 
+def gains(): #Rapport des gains
+    tk.messagebox.showinfo(message = f"Gain du jeu : {gains_gagnes} €.\r\nGain du jackpot (si gagné) : {jackpot_remporte} €.\r\nGains totaux de la session : {gains_gagnes+jackpot_remporte} €.")
+    exit()
+
 # Création des boutons pour chaque boîte
 for i, boite_num in enumerate(boites):
     bouton = tk.Button(root, text=f"Boîte {boite_num}", width=15, command=lambda i=i: ouvrir(boites[i]))
     bouton.grid(row=i // 4, column=i % 4, padx=10, pady=10)
     boutons_boites.append(bouton)
-bouton_accepter = tk.Button(root, text="Accepter", width=15, state=tk.DISABLED, command=lambda i=i: accepter())
+bouton_accepter = tk.Button(root, text="Accepter", width=15, state=tk.DISABLED, command=lambda: accepter())
 bouton_accepter.grid(row=7, column=1, padx=10, pady=10)
-bouton_refuser = tk.Button(root, text="Refuser", width=15, state=tk.DISABLED, command=lambda i=i: refuser())
+bouton_refuser = tk.Button(root, text="Refuser", width=15, state=tk.DISABLED, command=lambda: refuser())
 bouton_refuser.grid(row=7, column=2, padx=10, pady=10)
 
 # Label pour afficher les instructions
-label_resultat = tk.Label(root, text="Choisir une boîte pour commencer le jeu", font=("Helvetica", 7))
+label_resultat = tk.Label(root, text="Choisissez une boîte pour commencer le jeu.", font=("Helvetica", 7))
 label_resultat.grid(row=6, column=0, columnspan=5, pady=20)
 
 # Création d'une section à droite pour afficher la liste des sommes
