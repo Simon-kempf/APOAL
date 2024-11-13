@@ -2,7 +2,7 @@ import tkinter as tk
 import tkinter.messagebox
 import random
 
-version = "0.2.0" #Version du jeu
+version = "0.2.1" #Version du jeu
 
 # Création de la fenêtre principale
 root = tk.Tk()
@@ -55,18 +55,19 @@ def appel_banque(): # Appel de la banque
     if boites_a_ouvrir > 1:
         boites_a_ouvrir -= 1
     boites_tour_ouvertes = 0
-    r = random.randrange(3)
+    r = random.randrange(4)
     if r == 0 and offre_acceptee == None: #échange
         offre = "échange"
         bouton_refuser.config(state=tk.ACTIVE)
-    elif r == 0 and offre_acceptee != None and min(sommes_restantes) <= offre_acceptee and max(sommes_restantes) >= offre_acceptee: #Comeback
-        offre = "comeback"
+    elif r == 0 and offre_acceptee != None and min(sommes_restantes) <= offre_acceptee and max(sommes_restantes) >= offre_acceptee: #come-back
+        offre = "come-back"
         bouton_accepter.config(state=tk.ACTIVE)
         bouton_refuser.config(state=tk.ACTIVE)
     else: #Argent
-        moyenne = sum(sommes_restantes)/len(sommes_restantes)
-        offre = moyenne*random.uniform(0.08, 0.12)
-        if offre < min(sommes_restantes):
+        moyenne = sum(sommes_restantes)/len(sommes_restantes) # Calcul de la moyenne des sommes restantes
+        offre = moyenne/(len(sommes_restantes)/2) # Plus il reste de boîte, plus l'offre est faible
+        offre = offre*random.uniform(0.5, 1.5)
+        if offre <= min(sommes_restantes) or offre >= max(sommes_restantes):
             offre = moyenne
         offre = round(offre, 2)
         offres_banque.append(offre)
@@ -78,35 +79,35 @@ def accepter(): #Acceptation d'une offre
     global gains_gagnes, offre, offre_acceptee
     bouton_accepter.config(state=tk.DISABLED)
     bouton_refuser.config(state=tk.DISABLED)
-    if offre == "comeback":
-        label_resultat.config(text=f"Vous avez accepté le comeback !\r\nLa boîte {boite_num} vous réappartient et vous avez abandonné l'offre de {offre_acceptee} €.")
+    if offre == "come-back":
+        label_resultat.config(text=f"Vous avez accepté le come-back !\r\nLa boîte {boite_num} vous réappartient et vous avez abandonné l'offre de {offre_acceptee} €.")
         offre_acceptee = None
     elif offre == "boite 25":
         if contenu_boite_25 == 0:
             gains_gagnes = 0
-            label_resultat.config(text=f"La 25ème boîte contient malheuresement banqueroute !\r\nVous avez tout perdu !")
+            gain_str = str(gains_gagnes) + " €"
+            label_resultat.config(text=f"La 25ème boîte contient malheuresement banqueroute !\r\nVous avez tout perdu !" + gains(gain_str))
         elif contenu_boite_25 == 1:
             if type(gains_gagnes) is str:
                 gain_str = gains_gagnes = "la moitié de " + gains_gagnes
             else:
                 gains_gagnes = gains_gagnes/2
                 gain_str = str(gains_gagnes) + " €"
-            label_resultat.config(text=f"La 25ème boîte contient divisé par 2 !\r\nVous avez divisé vos gains par 2 !\r\nVous gagnez donc {gain_str} !")
+            label_resultat.config(text=f"La 25ème boîte contient divisé par 2 !\r\nVous avez divisé vos gains par 2 !" + gains(gain_str))
         elif contenu_boite_25 == 2:
             if type(gains_gagnes) is str:
                 gains_gagnes = 1000
             else:
                 gains_gagnes += 1000
             gain_str = str(gains_gagnes) + " €"
-            label_resultat.config(text=f"La 25ème boîte contient plus 1000 € !\r\nVous avez ajouté 1000 € à vos gains !\r\nVous gagnez donc {gain_str} !")
+            label_resultat.config(text=f"La 25ème boîte contient plus 1000 € !\r\nVous avez ajouté 1000 € à vos gains !" + gains(gain_str))
         else:
             if type(gains_gagnes) is str:
                 gain_str = gains_gagnes = "2 " + gains_gagnes + "s"
             else:
                 gains_gagnes = gains_gagnes*2
                 gain_str = str(gains_gagnes) + " €"
-            label_resultat.config(text=f"La 25ème boîte contient multiplié par 2 !\r\nVous avez multiplié vos gains par 2 !\r\nVous gagnez donc {gain_str} !")
-        gains()
+            label_resultat.config(text=f"La 25ème boîte contient multiplié par 2 !\r\nVous avez multiplié vos gains par 2 !" + gains(gain_str))
     else:
         offre_acceptee = offre
         label_resultat.config(text=f"Vous avez accepté {offre} € !\r\nQuelle boîte auriez-vous ouverte si vous n'auriez pas accepté ?\r\nIl reste {boites_a_ouvrir} boîtes à ouvrir avant l'offre du banquier.")
@@ -116,16 +117,19 @@ def refuser(): #Refus d'une offre
     global gains_gagnes, offre
     bouton_accepter.config(state=tk.DISABLED)
     bouton_refuser.config(state=tk.DISABLED)
+    if type(gains_gagnes) is str:
+        gain_str = gains_gagnes
+    else:
+        gain_str = str(gains_gagnes) + " €"
     if offre == "boite 25":
         if contenu_boite_25 == 0:
-            label_resultat.config(text=f"La 25ème boîte contenait banqueroute !\r\nVous avez bien fait de ne pas l'ouvrir !\r\nVous gardez vos {gains_gagnes} € !")
+            label_resultat.config(text=f"La 25ème boîte contenait banqueroute !\r\nVous avez bien fait de ne pas l'ouvrir !" + gains(gain_str))
         elif contenu_boite_25 == 1:
-            label_resultat.config(text=f"La 25ème boîte contenait divisé par 2 !\r\nVous avez bien fait de ne pas l'ouvrir !\r\nVous gardez vos {gains_gagnes} € !")
+            label_resultat.config(text=f"La 25ème boîte contenait divisé par 2 !\r\nVous avez bien fait de ne pas l'ouvrir !" + gains(gain_str))
         elif contenu_boite_25 == 2:
-            label_resultat.config(text=f"La 25ème boîte contenait plus 1000 € !\r\nVous gardez cependant vos {gains_gagnes} € !")
+            label_resultat.config(text=f"La 25ème boîte contenait malheuresement plus 1000 € !" + gains(gain_str))
         else:
-            label_resultat.config(text=f"La 25ème boîte contenait multiplié par 2 !\r\nVous gardez cependant vos {gains_gagnes} € !")
-        gains()
+            label_resultat.config(text=f"La 25ème boîte contenait malheuresement multiplié par 2 !" + gains(gain_str))
     else:
         label_resultat.config(text=f"Offre refusée.\r\nVous pouvez ouvrir une boîte.\r\nIl reste {boites_a_ouvrir} boîtes à ouvrir avant l'offre du banquier.")
     offre = None
@@ -154,8 +158,8 @@ def ouvrir(boite_num):
             appel_banque()
             if offre == "échange":
                 label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} qui contenait {contenu}.\r\nLa banque vous propose un échange de boîte.\r\nCliquez sur une boîte pour changer de boîte ou cliquez sur refuser (votre boîte actuelle : {boite_joueur}).")
-            elif offre == "comeback":
-                label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} qui contenait {contenu}.\r\nLa banque vous propose un comeback (offre acceptée : {offre_acceptee} €).")
+            elif offre == "come-back":
+                label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} qui contenait {contenu}.\r\nLa banque vous propose un come-back (offre acceptée : {offre_acceptee} €).")
             else:
                 if offre_acceptee is not None: # Une offre a déjà été acceptée
                     label_resultat.config(text=f"Vous avez ouvert la boîte {boite_num} qui contenait {contenu}.\r\nLa banque vous aurait proposé la somme de {offre} €.\r\nVous avez cependant accepté précédemment {offre_acceptee} €.")
@@ -196,9 +200,8 @@ def fin(): #Fin de la partie
     bouton_accepter.config(state=tk.ACTIVE)
     bouton_refuser.config(state=tk.ACTIVE)
 
-def gains(): #Rapport des gains
-    tk.messagebox.showinfo(message = f"Gain du jeu : {gains_gagnes} €.\r\nGain du jackpot (si gagné) : {jackpot_remporte} €.\r\nGains totaux de la session : {gains_gagnes+jackpot_remporte} €.")
-    exit()
+def gains(gain_str): #Rapport des gains
+    return f"\r\nVous gagnez donc {gain_str} !\r\nGain du jeu : {gains_gagnes} €.\r\nGain du jackpot (si gagné) : {jackpot_remporte} €.\r\nGains totaux de la session : {gains_gagnes+jackpot_remporte} €."
 
 # Création des boutons pour chaque boîte
 for i, boite_num in enumerate(boites):
